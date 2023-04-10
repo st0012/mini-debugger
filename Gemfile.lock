@@ -1,0 +1,24 @@
+PATH
+  remote: .
+  specs:
+    mini-debugger (0.1.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    io-console (0.6.0)
+    rake (13.0.6)
+    reline (0.3.3)
+      io-console (~> 0.5)
+
+PLATFORMS
+  arm64-darwin-21
+  arm64-darwin-22
+
+DEPENDENCIES
+  mini-debugger!
+  rake (~> 13.0)
+  reline
+
+BUNDLED WITH
+   2.4.10
