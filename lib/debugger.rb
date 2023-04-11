@@ -12,6 +12,8 @@ module Debugger
     def suspend!(binding, bp: nil)
       if bp
         puts "Suspended by: #{bp.name}"
+        # The initial breakpoint is a one-time breakpoint, so we need to delete it after we hit it
+        @breakpoints.delete(bp) if bp.once
       end
 
       display_code(binding)
@@ -66,7 +68,7 @@ module Debugger
     def add_breakpoint(file, line, **options)
       bp = LineBreakpoint.new(file, line, **options)
       @breakpoints << bp
-      puts "Breakpoint added: #{bp.location}"
+      puts "Breakpoint added: #{bp.location}" unless bp.once
       bp.enable
     end
 
@@ -142,9 +144,12 @@ module Debugger
   SESSION = Session.new
 
   class LineBreakpoint
-    def initialize(file, line)
+    attr_reader :once
+
+    def initialize(file, line, once: false)
       @file = file
       @line = line
+      @once = once
       @tp =
         TracePoint.new(:line) do |tp|
           # we need to expand paths to make sure they'll match
@@ -176,4 +181,9 @@ class Binding
   def debug
     Debugger::SESSION.suspend!(self)
   end
+end
+
+# If the program is run with `exe/debug`, we'll add a breakpoint at the first line
+if ENV["RUBYOPT"] && ENV["RUBYOPT"].split.include?("-rdebugger")
+  Debugger::SESSION.add_breakpoint($0, 1, once: true)
 end
