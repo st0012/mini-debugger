@@ -13,6 +13,9 @@ module Debugger
         when "step"
           step_in
           break
+        when "next"
+          step_over
+          break
         when "continue"
           break
         when "exit"
@@ -31,6 +34,22 @@ module Debugger
         next if internal_path?(File.expand_path(tp.path))
 
         # Disable the TracePoint after we hit the next execution
+        tp.disable
+        suspend!(tp.binding)
+      end
+    end
+
+    def step_over
+      # ignore call frames from the debugger itself
+      current_depth = caller.length - 2
+
+      TracePoint.trace(:line) do |tp|
+        # There are some internal files we don't want to step into
+        next if internal_path?(File.expand_path(tp.path))
+        depth = caller.length
+
+        next if current_depth < depth
+
         tp.disable
         suspend!(tp.binding)
       end
