@@ -1,6 +1,3 @@
-require "debugger"
-binding.debug
-
 def fib(num)
   if num < 2
     num
