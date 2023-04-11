@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "reline"
+require "rbconfig"
 
 module Debugger
   class Session
@@ -9,6 +10,9 @@ module Debugger
 
       while input = Reline.readline("(debug) ")
         case input
+        when "step"
+          step_in
+          break
         when "continue"
           break
         when "exit"
@@ -20,6 +24,28 @@ module Debugger
     end
 
     private
+
+    def step_in
+      TracePoint.trace(:line) do |tp|
+        # There are some internal files we don't want to step into
+        next if internal_path?(File.expand_path(tp.path))
+
+        # Disable the TracePoint after we hit the next execution
+        tp.disable
+        suspend!(tp.binding)
+      end
+    end
+
+    RELINE_PATH = Gem.loaded_specs["reline"].full_require_paths.first
+
+    # 1. Check if the path is inside the debugger itself
+    # 2. Check if the path is inside Ruby's standard library
+    # 3. Check if the path is inside Ruby's internal files
+    # 4. Check if the path is inside Reline
+    def internal_path?(path)
+      path.start_with?(__dir__) || path.start_with?(RbConfig::CONFIG["rubylibdir"]) ||
+      path.match?(/<internal:/) || path.start_with?(RELINE_PATH)
+    end
 
     def eval_input(binding, input)
       binding.eval(input)
