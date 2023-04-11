@@ -1,4 +1,5 @@
 require "debugger"
+binding.debug
 
 def fib(num)
   if num < 2
@@ -8,7 +9,6 @@ def fib(num)
   end
 end
 
-binding.debug
 a = fib(6)
 b = fib(7)
 puts a + b

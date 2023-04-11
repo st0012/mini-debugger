@@ -5,11 +5,47 @@ require "rbconfig"
 
 module Debugger
   class Session
-    def suspend!(binding)
+    def initialize
+      @breakpoints = []
+    end
+
+    def suspend!(binding, bp: nil)
+      if bp
+        puts "Suspended by: #{bp.name}"
+      end
+
       display_code(binding)
 
       while input = Reline.readline("(debug) ")
-        case input
+        cmd, arg = input.split(" ", 2)
+
+        case cmd
+        when "break"
+          case arg
+          when /\A(\d+)\z/
+            add_breakpoint(binding.source_location[0], $1.to_i)
+          when /\A(.+)[:\s+](\d+)\z/
+            add_breakpoint($1, $2.to_i)
+          when nil
+            if @breakpoints.empty?
+              puts "No breakpoints"
+            else
+              @breakpoints.each_with_index do |bp, index|
+                puts "##{index} - #{bp.location}"
+              end
+            end
+          else
+            puts "Unknown break format: #{arg}"
+          end
+        when "delete"
+          index = arg.to_i
+
+          if bp = @breakpoints.delete_at(index)
+            bp.disable
+            puts "Breakpoint ##{index} (#{bp.location}) has been deleted"
+          else
+            puts "Breakpoint ##{index} not found"
+          end
         when "step"
           step_in
           break
@@ -24,6 +60,14 @@ module Debugger
           puts "=> " + eval_input(binding, input).inspect
         end
       end
+    end
+
+    # We add it to the public API because we'll need it later
+    def add_breakpoint(file, line, **options)
+      bp = LineBreakpoint.new(file, line, **options)
+      @breakpoints << bp
+      puts "Breakpoint added: #{bp.location}"
+      bp.enable
     end
 
     private
@@ -96,6 +140,36 @@ module Debugger
   end
 
   SESSION = Session.new
+
+  class LineBreakpoint
+    def initialize(file, line)
+      @file = file
+      @line = line
+      @tp =
+        TracePoint.new(:line) do |tp|
+          # we need to expand paths to make sure they'll match
+          if File.expand_path(tp.path) == File.expand_path(@file) && tp.lineno == @line
+            SESSION.suspend!(tp.binding, bp: self)
+          end
+        end
+    end
+
+    def location
+      "#{@file}:#{@line}"
+    end
+
+    def name
+      "Breakpoint at #{location}"
+    end
+
+    def enable
+      @tp.enable
+    end
+
+    def disable
+      @tp.disable
+    end
+  end
 end
 
 class Binding
